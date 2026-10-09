@@ -2,8 +2,8 @@
 # IITG approved single-MIG small allocation: 24 GB VRAM, 6 CPUs, 24 GB host RAM.
 # Submit via: bash cluster/submit.sh small benchmark
 #SBATCH --job-name=vla-small
-#SBATCH --output=slurm-%x-%j.out
-#SBATCH --error=slurm-%x-%j.err
+#SBATCH --output=logs/%x-%j.out
+#SBATCH --error=logs/%x-%j.err
 #SBATCH --partition=gpu_small
 #SBATCH --qos=gpu_small
 #SBATCH --nodes=1

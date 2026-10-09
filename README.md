@@ -79,6 +79,12 @@ On Windows, activate with `.venv\Scripts\Activate.ps1` instead of `source`.
 
 ## Run the real pilot
 
+For the IIT Guwahati Slurm cluster, use the [cluster instructions](cluster/README.md)
+and approved small/medium/large launchers. Logs default to
+`$HOME/VLA/Experiments/logs`; datasets, caches and resumable experiments use
+`/scratch/$USER/VLA`. The launchers capture GPU memory samples and utilization
+where the allocated device supports it, and archive each benchmark repeat.
+
 ```bash
 vla-weightspace prepare
 vla-weightspace benchmark
@@ -123,6 +129,7 @@ Outputs are ignored by Git under `artifacts/pilot/`:
 | `predictions/metrics.json` | Fold audits and per-pair/layer prediction metrics |
 | `functional/metrics.json` | Matched-noise, held-out native-flow comparisons |
 | `benchmark.json` | Actual update throughput, hardware/memory and projected collection time |
+| `benchmarks/<UTC timestamp>/` | Archived measured-update benchmark and live GPU samples |
 | `report/results.md` | Main prediction table and limitations |
 | `report/*.csv` | Aggregate/layer/functional/request-versus-seed results |
 | `report/*.png` | Magnitude, layer predictability and held-out-task plots |
@@ -155,6 +162,15 @@ hide those in the training-only estimate. The 1–2 day target requires a workin
 environment, cached data and adequate GPU access. No actual RTX PRO 6000 benchmark
 is bundled or claimed. FlashAttention changes and simulation rollouts are outside
 this focused study.
+
+Each benchmark now includes a two-second GPU telemetry stream and its summary.
+It records sampled total device VRAM and PyTorch's exact allocator high-water
+marks, plus GPU/memory-interface utilization if available through NVML. Warmup
+is excluded from the measured-update stream. Whole-command monitoring is also
+available with `--telemetry-dir logs/my-command` before the subcommand. MIG
+utilization can be unavailable; this is recorded as null with a reason, and
+never replaced with a parent GPU's activity. See the cluster guide for optional
+DCGM profiling and comparisons of matching workloads.
 
 ## Code structure
 

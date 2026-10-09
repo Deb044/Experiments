@@ -2,8 +2,8 @@
 # IITG approved single-MIG medium allocation: 48 GB VRAM, 12 CPUs, 48 GB host RAM.
 # Submit via: bash cluster/submit.sh medium benchmark
 #SBATCH --job-name=vla-medium
-#SBATCH --output=slurm-%x-%j.out
-#SBATCH --error=slurm-%x-%j.err
+#SBATCH --output=logs/%x-%j.out
+#SBATCH --error=logs/%x-%j.err
 #SBATCH --partition=gpu_medium
 #SBATCH --qos=gpu_medium
 #SBATCH --nodes=1

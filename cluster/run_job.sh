@@ -25,8 +25,8 @@ cd -- "$repo"
 if [[ ! -x $python ]]; then echo "Missing environment Python: $python (set VLA_PYTHON)" >&2; exit 2; fi
 # Host RAM differs from VRAM. Keep Torch/BLAS within the allocated CPU budget.
 case "$VLA_JOB_LEVEL" in small) cpus=6;; medium) cpus=12;; large) cpus=24;; esac
-export OMP_NUM_THREADS=${OMP_NUM_THREADS:-$cpus}
-export MKL_NUM_THREADS=${MKL_NUM_THREADS:-$cpus}
+export OMP_NUM_THREADS=$cpus
+export MKL_NUM_THREADS=$cpus
 if (($# == 0)); then set -- benchmark; fi
 printf 'Job=%s level=%s partition=%s CUDA_VISIBLE_DEVICES=%s\nRepo=%s\nOutput=%s\nLogs=%s\n' \
     "$SLURM_JOB_ID" "$VLA_JOB_LEVEL" "${SLURM_JOB_PARTITION:-unknown}" "${CUDA_VISIBLE_DEVICES:-unset}" "$repo" "$output" "$job_dir"
@@ -39,9 +39,11 @@ scontrol show job "$SLURM_JOB_ID" > "$job_dir/slurm-job.txt" 2>&1 || true
 # One writer per experiment. The descriptor/lock persists across all srun steps.
 exec 9> "$output/.job.lock"
 if ! flock -n 9; then echo "Experiment already has a running job: $output" >&2; exit 2; fi
+dcgm_pid=
 finish() {
     status=$?
     trap - EXIT
+    if [[ -n $dcgm_pid ]]; then kill "$dcgm_pid" 2>/dev/null || true; wait "$dcgm_pid" 2>/dev/null || true; fi
     printf 'Exit code=%s completion=%s\n' "$status" "$(date -Is)"
     printf '%s\n' "$status" > "$job_dir/exit-code.txt"
     # Accounting can lag; this is best effort, not a substitute for gpu samples.
@@ -53,6 +55,16 @@ config_args=(--source "$source_config" --destination "$output/config.json" --out
 if [[ -n ${VLA_MICROBATCH:-} ]]; then config_args+=(--microbatch="$VLA_MICROBATCH"); fi
 "$python" -u -m vla_weightspace.cluster config "${config_args[@]}"
 cp -- "$output/config.json" "$job_dir/config.json"
+# Optional MIG profiling through an administrator-provided DCGM group containing
+# ONLY this job's slice. Never default to the all-GPU group or start hostengine.
+if [[ -n ${VLA_DCGM_GROUP:-} ]]; then
+    if [[ ! $VLA_DCGM_GROUP =~ ^[0-9]+$ ]] || ! command -v dcgmi >/dev/null; then
+        echo 'VLA_DCGM_GROUP requires a numeric allocated-slice group and installed dcgmi' >&2; exit 2
+    fi
+    dcgmi discovery -c > "$job_dir/dcgm-discovery.txt" 2>&1 || true
+    dcgmi dmon -e 1001,1002,1004,1005 -g "$VLA_DCGM_GROUP" -d 2000 > "$job_dir/dcgm-profiling.txt" 2> "$job_dir/dcgm-profiling.err" &
+    dcgm_pid=$!
+fi
 if [[ $1 != doctor ]]; then
     srun "$python" -u -m vla_weightspace.cli --config "$output/config.json" --telemetry-dir "$job_dir/prepare" prepare
 fi

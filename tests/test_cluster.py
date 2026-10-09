@@ -34,6 +34,10 @@ def test_cpu_telemetry_missing_values_and_exception_preservation(tmp_path):
     with GpuTelemetry(tmp_path, device="cpu"):
         pass
     assert len(list(tmp_path.glob("*-summary.json"))) == 2
+    with pytest.raises(torch.cuda.OutOfMemoryError):
+        with GpuTelemetry(tmp_path, device="cpu") as failed:
+            raise torch.cuda.OutOfMemoryError("fixture OOM")
+    assert failed.summary["oom"] is True
 
 
 class Unsupported(Exception):

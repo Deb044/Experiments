@@ -2,8 +2,8 @@
 # IITG approved single-MIG large allocation: 96 GB VRAM, 24 CPUs, 96 GB host RAM.
 # Submit via: bash cluster/submit.sh large benchmark
 #SBATCH --job-name=vla-large
-#SBATCH --output=slurm-%x-%j.out
-#SBATCH --error=slurm-%x-%j.err
+#SBATCH --output=logs/%x-%j.out
+#SBATCH --error=logs/%x-%j.err
 #SBATCH --partition=gpu_large
 #SBATCH --qos=gpu_large
 #SBATCH --nodes=1
