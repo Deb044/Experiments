@@ -1,6 +1,7 @@
 """Small stage-oriented interface; every scientific artifact carries provenance."""
 import argparse
 import json
+import os
 from pathlib import Path
 
 from .config import load_config
@@ -20,6 +21,9 @@ def load_manifest(cfg):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Test predictability of deletion-induced VLA weight changes")
     parser.add_argument("--config", default="configs/pilot.json")
+    parser.add_argument("--telemetry-dir", default=os.environ.get("VLA_TELEMETRY_DIR"),
+                        help="Directory for live GPU JSONL samples and per-command summaries")
+    parser.add_argument("--telemetry-interval", type=float, default=2.0)
     sub = parser.add_subparsers(dest="command", required=True)
     for command in ("prepare", "benchmark", "extract", "predict", "evaluate", "report", "run", "doctor"):
         sub.add_parser(command)
@@ -29,6 +33,15 @@ def main(argv=None):
     train_parser.add_argument("--max-updates", type=int)
     args = parser.parse_args(argv)
     cfg = load_config(args.config)
+    if args.telemetry_interval <= 0:
+        parser.error("--telemetry-interval must be positive")
+    from .telemetry import GpuTelemetry
+    with GpuTelemetry(args.telemetry_dir, cfg["training"]["device"],
+                      args.telemetry_interval, scope=args.command):
+        return execute(args, cfg, parser)
+
+
+def execute(args, cfg, parser):
     if args.command == "doctor":
         import importlib.util
         import platform

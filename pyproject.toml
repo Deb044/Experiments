@@ -12,6 +12,7 @@ dependencies = ["numpy>=1.26", "torch>=2.6", "matplotlib>=3.8"]
 [project.optional-dependencies]
 research = ["lerobot[smolvla,dataset] @ git+https://github.com/huggingface/lerobot.git@b9cb121cb7d4e3e26ec5c906d08dda68d151ba52"]
 test = ["pytest>=8"]
+cluster = ["nvidia-ml-py>=12"]
 
 [project.scripts]
 vla-weightspace = "vla_weightspace.cli:main"

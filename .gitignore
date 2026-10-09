@@ -6,6 +6,6 @@ __pycache__/
 .pytest_cache/
 artifacts/
 data/
+logs/
 *.pt
 *.npz
-
