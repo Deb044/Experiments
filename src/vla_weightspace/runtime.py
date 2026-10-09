@@ -43,7 +43,8 @@ def hardware_info(device):
                       peak_allocated_gb=torch.cuda.max_memory_allocated(device) / 2**30,
                       peak_reserved_gb=torch.cuda.max_memory_reserved(device) / 2**30)
         try:
-            result["nvidia_smi"] = subprocess.check_output(["nvidia-smi", "--query-gpu=name,utilization.gpu,memory.free,power.limit,driver_version", "--format=csv"], text=True, timeout=5).strip()
+            result["nvidia_smi_scope"] = "Node-wide identity/driver diagnostic; not allocated-slice utilization"
+            result["nvidia_smi"] = subprocess.check_output(["nvidia-smi", "--query-gpu=name,uuid,driver_version", "--format=csv"], text=True, timeout=5).strip()
         except (OSError, subprocess.SubprocessError):
             result["nvidia_smi"] = "unavailable"
     return result
