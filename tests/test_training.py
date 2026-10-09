@@ -1,5 +1,6 @@
 """CPU training contracts: real gradients, frozen bases, and exact resume."""
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
 
@@ -86,6 +87,25 @@ class TrainingTests(unittest.TestCase):
             self.assertGreater(sum(np.linalg.norm(value) for value in gradients.values()), 0)
             for name, value in initial.items():
                 np.testing.assert_array_equal(value, factors(backend.modules)[name])
+
+    def test_copied_checkpoint_cannot_be_reused_for_another_deletion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manifest = self.fixture(Path(directory))
+            backend = create_backend(manifest, "goal-0", 0)
+            initial = factors(backend.modules)
+            specs = list(run_specs(manifest))[:2]
+            train_one(backend, specs[0], manifest, initial, max_updates=2)
+            source = Path(directory) / "runs" / specs[0]["id"]
+            target = Path(directory) / "runs" / specs[1]["id"]
+            target.mkdir(parents=True)
+            shutil.copyfile(source / "resume.pt", target / "resume.pt")
+            with self.assertRaisesRegex(ValueError, "deletion request"):
+                train_one(backend, specs[1], manifest, initial)
+            train_one(backend, specs[0], manifest, initial)
+            shutil.copyfile(source / "complete.json", target / "complete.json")
+            shutil.copyfile(source / "adapter.npz", target / "adapter.npz")
+            with self.assertRaises(ValueError):
+                train_one(backend, specs[1], manifest, initial)
 
 
 if __name__ == "__main__":

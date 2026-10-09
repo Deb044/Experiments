@@ -8,7 +8,7 @@ import numpy as np
 import torch
 
 from .backends import create_backend
-from .io import read_json, read_npz, write_json, write_npz
+from .io import digest, read_json, read_npz, write_json, write_npz
 from .lora import factors, load_factors
 from .manifest import run_specs
 from .runtime import hardware_info, optimizer_for, seed_everything, timing_summary, update
@@ -34,11 +34,12 @@ def train_one(backend, spec, manifest, initial, max_updates=None):
     path = Path(backend.cfg["output"]) / "runs" / spec["id"]
     path.mkdir(parents=True, exist_ok=True)
     fingerprint = manifest["fingerprint"]
+    spec_hash = digest(spec)
     initial_hash = array_digest(initial)
     done = path / "complete.json"
     if done.exists():
         metadata = read_json(done)
-        if metadata["fingerprint"] != fingerprint or metadata["initial_hash"] != initial_hash:
+        if metadata["fingerprint"] != fingerprint or metadata["initial_hash"] != initial_hash or metadata.get("spec") != spec:
             raise ValueError("Completed run has mismatched protocol or initialization")
         if array_digest(read_npz(path / "adapter.npz")) != metadata["adapter_hash"]:
             raise ValueError("Completed adapter artifact is damaged")
@@ -53,8 +54,8 @@ def train_one(backend, spec, manifest, initial, max_updates=None):
     resume = path / "resume.pt"
     if resume.exists():
         state = torch.load(resume, map_location="cpu", weights_only=True)
-        if state["fingerprint"] != fingerprint or state["initial_hash"] != initial_hash:
-            raise ValueError("Resume checkpoint has mismatched protocol or initialization")
+        if state["fingerprint"] != fingerprint or state["initial_hash"] != initial_hash or state.get("spec_hash") != spec_hash:
+            raise ValueError("Resume checkpoint has mismatched protocol, initialization or deletion request; use a fresh output for legacy partial checkpoints")
         load_factors(backend.modules, {key: value.numpy() for key, value in state["factors"].items()})
         optimizer.load_state_dict(state["optimizer"])
         rng.bit_generator.state = state["sampler_rng"]
@@ -73,7 +74,7 @@ def train_one(backend, spec, manifest, initial, max_updates=None):
         losses.append(loss)
         timings.append(seconds)
         if step % backend.cfg["training"]["checkpoint_every"] == 0 or step == stop:
-            save_resume(resume, {"fingerprint": fingerprint, "initial_hash": initial_hash, "step": step,
+            save_resume(resume, {"fingerprint": fingerprint, "initial_hash": initial_hash, "spec_hash": spec_hash, "step": step,
                                 "factors": {key: torch.from_numpy(value) for key, value in factors(backend.modules).items()},
                                 "optimizer": optimizer.state_dict(), "sampler_rng": rng.bit_generator.state,
                                 "torch_rng": torch.get_rng_state(), "cuda_rng": torch.cuda.get_rng_state_all() if backend.device.type == "cuda" else [],
@@ -113,4 +114,3 @@ def train(manifest, task_filter=None, run_filter=None, max_updates=None):
         train_one(backend, spec, manifest, initial, max_updates=max_updates)
     if backend is not None:
         backend.close()
-
