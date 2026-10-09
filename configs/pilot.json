@@ -1,0 +1,20 @@
+{
+  "backend": "smolvla",
+  "output": "../artifacts/pilot",
+  "dataset": {"repo_id": "lerobot/libero", "revision": "main", "video_backend": "pyav"},
+  "model": {"repo_id": "lerobot/smolvla_base", "revision": "main", "rank": 16},
+  "tasks": [
+    {"id": "goal-0", "instruction": "open the middle drawer of the cabinet"},
+    {"id": "object-0", "instruction": "pick up the alphabet soup and place it in the basket"},
+    {"id": "spatial-0", "instruction": "pick up the black bowl between the plate and the ramekin and place it on the plate"}
+  ],
+  "seeds": [0, 1],
+  "request_seeds": [101, 102, 103],
+  "split_seed": 42,
+  "forget_fraction": 0.2,
+  "training": {"steps": 2000, "effective_batch": 16, "microbatch": 2, "lr": 0.0001, "device": "cuda", "precision": "bf16", "checkpoint_every": 250},
+  "probes": {"windows": 128, "draws": 2, "gradient_windows": 32, "seed": 2026},
+  "prediction": {"components": 8, "ridge_grid": [0.001, 0.1, 1.0, 10.0]},
+  "benchmark": {"warmup": 50, "updates": 100},
+  "synthetic": {"episodes_per_task": 30, "frames_per_episode": 10, "state_dim": 6, "action_dim": 4}
+}

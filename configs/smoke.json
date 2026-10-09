@@ -1,0 +1,16 @@
+{
+  "backend": "synthetic",
+  "output": "../artifacts/smoke",
+  "dataset": {"repo_id": "synthetic", "revision": "fixture-v1"},
+  "model": {"repo_id": "tiny-flow-fixture", "revision": "fixture-v1", "rank": 2},
+  "tasks": [{"id": "goal-0"}, {"id": "object-0"}, {"id": "spatial-0"}],
+  "seeds": [0, 1],
+  "request_seeds": [101, 102, 103],
+  "split_seed": 42,
+  "forget_fraction": 0.2,
+  "training": {"steps": 12, "effective_batch": 4, "microbatch": 2, "lr": 0.01, "device": "cpu", "precision": "fp32", "checkpoint_every": 6},
+  "probes": {"windows": 8, "draws": 2, "gradient_windows": 4, "seed": 2026},
+  "prediction": {"components": 4, "ridge_grid": [0.01, 1.0]},
+  "benchmark": {"warmup": 2, "updates": 3},
+  "synthetic": {"episodes_per_task": 20, "frames_per_episode": 8, "state_dim": 6, "action_dim": 4}
+}
