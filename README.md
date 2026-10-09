@@ -61,8 +61,9 @@ LeRobot is pinned to commit
 dataset and SmolVLA dependencies. `prepare` resolves dataset, policy, and nested
 VLM/tokenizer revisions to immutable Hub commits and stores them in the manifest.
 The latest refs in the config are used only for initial resolution, never as
-mutable training references. A rerun under changed revisions/config fails rather
-than mixing artifacts. Copy the original manifest/config for reproducibility.
+mutable training references. Existing manifests resume their already-pinned
+revisions without re-resolving main. Changed configuration fails rather than
+mixing artifacts. Copy the original manifest/config for reproducibility.
 
 For a CPU plumbing check without LeRobot or model/dataset downloads:
 
@@ -132,7 +133,9 @@ normalized gains rather than an epsilon-generated success score. Functional
 checks compare predicted effective updates with clean models on 128 fixed held-out
 windows and two shared noise/time draws, masking padded actions. Predicted dense
 updates are evaluated exactly, without a rank-truncation step that would change
-the prediction under study. This is a weight-space probe, not an efficient
+the prediction under study. Full and clean references use the same dense-update
+evaluation path to avoid comparing different floating-point factorizations.
+This is a weight-space probe, not an efficient
 deployable unlearning algorithm.
 
 Evidence for predictability requires gains over zero, mean change, and shuffled

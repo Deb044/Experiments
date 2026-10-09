@@ -15,6 +15,8 @@ from ..lora import attach_lora
 
 class SmolVLABackend:
     def __init__(self, manifest, task, seed):
+        from ..provenance import verify_lerobot
+        verify_lerobot()
         from huggingface_hub import snapshot_download
         from lerobot.configs import FeatureType, PreTrainedConfig
         from lerobot.datasets.lerobot_dataset import LeRobotDataset
@@ -48,6 +50,7 @@ class SmolVLABackend:
         config.output_features = {"action": features["action"]}
         self.action_dim = features["action"].shape[0]
         self.policy = SmolVLAPolicy.from_pretrained(self.cfg["model"]["repo_id"], revision=provenance["model_revision"], config=config, strict=True)
+        self.policy.float()  # BF16 is applied through autocast; fp32 also remains a valid configuration.
         torch.manual_seed(seed)
         self.modules = attach_lora(self.policy, self.cfg["model"]["rank"])
         names = list(self.modules)

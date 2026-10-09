@@ -1,6 +1,7 @@
 """Device-aware timing and bounded training helpers."""
 from contextlib import nullcontext
 import platform
+import importlib.metadata
 import subprocess
 import time
 
@@ -29,6 +30,12 @@ def synchronize(device):
 
 def hardware_info(device):
     result = {"platform": platform.platform(), "torch": torch.__version__, "device": str(device), "cuda_runtime": torch.version.cuda}
+    result["packages"] = {}
+    for name in ("numpy", "transformers", "lerobot", "huggingface-hub"):
+        try:
+            result["packages"][name] = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            result["packages"][name] = None
     if device.type == "cuda":
         props = torch.cuda.get_device_properties(device)
         result.update(name=props.name, total_gb=props.total_memory / 2**30,
@@ -71,4 +78,3 @@ def update(backend, optimizer, episodes, rng):
 def timing_summary(values):
     return {"updates": len(values), "mean_seconds": float(np.mean(values)), "median_seconds": float(np.median(values)),
             "p95_seconds": float(np.percentile(values, 95)), "total_seconds": float(sum(values))}
-

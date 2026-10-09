@@ -84,21 +84,26 @@ def evaluate(manifest):
         episodes = manifest["tasks"][task]["heldout"]
         cache = reference_root / f"{pair['id']}.npz"
         cache_meta = cache.with_suffix(".json")
+        compatible_cache = False
         if cache.exists() and cache_meta.exists():
             info = read_json(cache_meta)
             if info["fingerprint"] != manifest["fingerprint"]:
                 raise ValueError("Stale functional reference")
+            compatible_cache = info.get("implementation") == "dense-effective-flow-v1"
+        if compatible_cache:
             reference = read_npz(cache)
         else:
             load_factors(backend.modules, full_values)
+            apply_updates(backend.modules, full)
             full_flow, valid, full_loss = flow_probes(backend, episodes, probe_seed)
             load_factors(backend.modules, clean_values)
+            apply_updates(backend.modules, effective_updates(clean_values))
             clean_flow, clean_valid, clean_loss = flow_probes(backend, episodes, probe_seed)
             if not np.array_equal(valid, clean_valid):
                 raise ValueError("Probe windows were not paired")
             reference = {"full": full_flow, "clean": clean_flow, "valid": valid}
             write_npz(cache, reference)
-            info = {"fingerprint": manifest["fingerprint"], "full_loss": full_loss, "clean_loss": clean_loss,
+            info = {"fingerprint": manifest["fingerprint"], "implementation": "dense-effective-flow-v1", "full_loss": full_loss, "clean_loss": clean_loss,
                     "original_discrepancy": functional_mse(full_flow, clean_flow, valid)}
             write_json(cache_meta, info)
         for prediction_id, row in sorted(by_pair[pair["id"]].items()):
