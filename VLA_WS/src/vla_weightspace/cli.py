@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 
 from .config import load_config
@@ -46,7 +47,9 @@ def execute(args, cfg, parser):
         import importlib.util
         import platform
         import torch
-        print(json.dumps({"python": platform.python_version(), "torch": torch.__version__, "cuda_available": torch.cuda.is_available(),
+        print(json.dumps({"python": platform.python_version(), "python_executable": sys.executable,
+                          "environment_prefix": sys.prefix, "code_path": str(Path(__file__).resolve()),
+                          "torch": torch.__version__, "cuda_available": torch.cuda.is_available(),
                           "lerobot_installed": importlib.util.find_spec("lerobot") is not None, "backend": cfg["backend"]}, indent=2))
         return
     if args.command in {"prepare", "run"}:

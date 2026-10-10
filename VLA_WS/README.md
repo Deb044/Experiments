@@ -101,6 +101,12 @@ vla-weightspace report
 
 Or run all stages with `vla-weightspace run`. Preparation downloads metadata and
 pins revisions. Training downloads the selected episodes and pretrained weights.
+Some LeRobot v3 datasets, including this LIBERO export, omit task labels from
+episode metadata. Preparation then scans only `episode_index` and `task_index`
+from the pinned frame parquet files, resolves labels through the task table,
+and verifies frame counts against each episode's declared length. No videos are
+downloaded during this scan. Frame files are cached in the training dataset root;
+progress and selected trajectory counts are printed to the job log.
 `benchmark` warms up 50 updates then measures 100 complete updates, including data
 loading, backward, accumulation, and optimizer steps. Benchmark updates are not
 saved as scientific training checkpoints.

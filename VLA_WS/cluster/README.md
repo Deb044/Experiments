@@ -150,6 +150,41 @@ errors without turning its output into utilization measurements. See
 
 ## Train and resume
 
+### Recovering from `goal-0: need at least ten distinct complete trajectories`
+
+The original selector assumed every episode metadata row contained `tasks`.
+The LIBERO v3 export does not have that column, so it selected zero episodes.
+This failure is in preparation, before model training; the Hugging Face
+unauthenticated-download warning is unrelated. Updated preparation resolves
+task indices from frame parquet files and preserves the trajectory requirement.
+
+On the cluster, update the code and reinstall the editable package into the
+**same environment used by the job**, without changing its research dependencies:
+
+```bash
+cd "$HOME/VLA/Experiments"
+git pull --ff-only
+cd VLA_WS
+export VLA_PYTHON="${VLA_PYTHON:-$PWD/.venv/bin/python}"
+"$VLA_PYTHON" -m pip install -e . --no-deps
+"$VLA_PYTHON" -m vla_weightspace.cli doctor
+VLA_BENCHMARK_REPEATS=1 bash cluster/submit.sh medium benchmark
+```
+
+If your environment lives elsewhere, set `VLA_PYTHON` to that environment's
+absolute `bin/python` path before these commands. Doctor prints the interpreter,
+environment prefix and imported code path; the code path should be inside
+`VLA_WS/src`. CUDA availability on a login node can be false; check it in an
+allocated GPU job. There is no reason to rebuild the environment solely for
+this traceback. The failed preparation did not create a manifest/checkpoints,
+so rerun using the same scratch experiment name/config; do not delete caches
+or change the scientific split settings.
+
+The first fixed preparation scans/cache-downloads the small frame parquet files
+and logs `Task-label scan` followed by all three selected trajectory counts.
+Subsequent preparation reuses the immutable manifest. If selection is still
+insufficient, the error now prints matched counts and available task labels.
+
 ```bash
 # Use the benchmarked medium protocol and its persistent output directory.
 VLA_WALLTIME=01:00:00 bash cluster/submit.sh medium train \

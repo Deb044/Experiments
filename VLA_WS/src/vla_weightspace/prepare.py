@@ -1,13 +1,9 @@
 """Resolve immutable Hub revisions and select actual dataset trajectories."""
 from pathlib import Path
-import re
 
 from .io import digest, read_json, write_json
 from .manifest import make_manifest
-
-
-def canonical(text):
-    return " ".join(re.sub(r"[^a-z0-9]+", " ", str(text).lower()).split())
+from .dataset_tasks import canonical, select_episodes
 
 
 def prepare(cfg):
@@ -40,20 +36,21 @@ def prepare(cfg):
         vlm_id = model_config["vlm_model_name"]
         vlm_revision = api.model_info(vlm_id).sha
         meta = LeRobotDatasetMetadata(ds["repo_id"], revision=dataset_revision)
-        episodes = {task["id"]: [] for task in cfg["tasks"]}
-        expected = {canonical(task["instruction"]): task["id"] for task in cfg["tasks"]}
-        for episode in meta.episodes:
-            labels = episode.get("tasks", [])
-            if isinstance(labels, str):
-                labels = [labels]
-            matches = {expected[canonical(label)] for label in labels if canonical(label) in expected}
-            if len(matches) > 1:
-                raise ValueError("Episode belongs to multiple selected tasks")
-            if matches:
-                episodes[matches.pop()].append(int(episode["episode_index"]))
+        import pyarrow.parquet as pq
+        task_table = {int(row["task_index"]): str(label) for label, row in meta.tasks.iterrows()}
+
+        def read_file(filename):
+            # Cache into the same LeRobot root that training uses. Every file is
+            # resolved at the immutable dataset commit, not a mutable main ref.
+            local = hf_hub_download(ds["repo_id"], filename, repo_type="dataset",
+                                    revision=dataset_revision, local_dir=meta.root)
+            return pq.read_table(local, columns=["episode_index", "task_index"], use_threads=False).to_pylist()
+
+        episodes, selection = select_episodes(cfg["tasks"], list(meta.episodes), task_table, meta.data_path, read_file)
         provenance = {"synthetic": False, "dataset_revision": dataset_revision, "model_revision": model_revision,
                       "vlm_id": vlm_id, "vlm_revision": vlm_revision, "dataset_root": str(meta.root),
-                      "lerobot_commit": installed_lerobot["commit"], "lerobot_version": installed_lerobot["version"]}
+                      "lerobot_commit": installed_lerobot["commit"], "lerobot_version": installed_lerobot["version"],
+                      "task_selection": selection}
     manifest = make_manifest(cfg, episodes, provenance)
     if path.exists() and read_json(path)["fingerprint"] != manifest["fingerprint"]:
         raise ValueError("Output already contains a different manifest; use a new output directory")
