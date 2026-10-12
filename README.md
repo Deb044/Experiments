@@ -2,17 +2,19 @@
 
 A collection of research experiments. Each experiment lives in its own folder,
 with its code, configuration, tests, documentation and supporting files together.
-`VLA_WS` is the first experiment; future experiments will have separate folders.
+`VLA_WS` is the first experiment; `O3-VLA` is the second. Future experiments will have separate folders.
 
 ## Current experiment
 
 | Folder | Research question | Instructions |
 |---|---|---|
 | [VLA_WS](VLA_WS/) | Do deletion requests produce predictable changes in VLA weight space? | [Experiment README](VLA_WS/README.md) · [Cluster guide](VLA_WS/cluster/README.md) |
+| [O3-VLA](O3-VLA/) | Can orthogonal adapters preserve successive robot behavior restrictions while maintaining allowed skills? | [Setup and cluster instructions](O3-VLA/README.md) · [Experiments and metrics](O3-VLA/EXPERIMENTS.md) |
 
 ```text
 Experiments/
 ├── README.md
+├── O3-VLA/           # Independent O3-inspired continual behavior suppression pilot
 └── VLA_WS/
     ├── README.md
     ├── pyproject.toml

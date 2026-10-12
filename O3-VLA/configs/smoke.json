@@ -1,0 +1,21 @@
+{
+  "backend": "synthetic",
+  "output": "outputs/smoke",
+  "seed": 7,
+  "rank": 2,
+  "alpha": 2,
+  "updates_per_stage": 3,
+  "effective_batch": 4,
+  "microbatch": 1,
+  "checkpoint_every": 1,
+  "trajectories_per_task": 15,
+  "windows_per_trajectory": 4,
+  "eval_windows_per_trajectory": 2,
+  "benchmark_warmup": 1,
+  "benchmark_updates": 2,
+  "rollout_trials": 2,
+  "rollout_min_trials": 2,
+  "smoke_trials": 2,
+  "settle_steps": 1,
+  "video_episodes_per_configuration": 0
+}
