@@ -13,7 +13,7 @@ from vla_weightspace.config import load_config
 from vla_weightspace.io import read_json, read_npz
 from vla_weightspace.lora import LoRALinear, effective_gradients, effective_updates, factors
 from vla_weightspace.manifest import make_manifest, run_specs
-from vla_weightspace.training import train_one
+from vla_weightspace.training import train, train_one
 
 
 class TrainingTests(unittest.TestCase):
@@ -106,6 +106,14 @@ class TrainingTests(unittest.TestCase):
             shutil.copyfile(source / "adapter.npz", target / "adapter.npz")
             with self.assertRaises(ValueError):
                 train_one(backend, specs[1], manifest, initial)
+
+    def test_task_and_seed_filters_select_one_models_runs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manifest = self.fixture(Path(directory))
+            train(manifest, "goal-0", max_updates=1, seed_filter=1)
+            started = [path.relative_to(directory).parts[:3] for path in Path(directory).rglob("resume.pt")]
+            self.assertEqual(len(started), 4)  # full plus three deletion requests
+            self.assertEqual(set(started), {("runs", "goal-0", "seed-1")})
 
 
 if __name__ == "__main__":

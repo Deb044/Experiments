@@ -65,10 +65,14 @@ class SyntheticBackend:
         noisy = time[:, None, None] * noise + (1 - time[:, None, None]) * batch["action"]
         return self.policy(batch["state"], noisy, time)
 
+    def flow_and_loss(self, batch, noise, time):
+        flow = self.flow(batch, noise, time)
+        return flow, ((flow - (noise - batch["action"])) ** 2).mean()
+
     def loss(self, batch, noise=None, time=None):
         if noise is None:
             noise, time = self.random_flow(batch)
-        return ((self.flow(batch, noise, time) - (noise - batch["action"])) ** 2).mean()
+        return self.flow_and_loss(batch, noise, time)[1]
 
     def valid_mse(self, left, right, batch):
         return ((left - right) ** 2).mean()

@@ -36,9 +36,40 @@ git status --porcelain > "$job_dir/git-status.txt"
 # These diagnostics may show the whole node; they are explicitly NOT job utilization.
 if command -v nvidia-smi >/dev/null; then nvidia-smi -L > "$job_dir/node-gpu-inventory.txt" 2>&1 || true; fi
 scontrol show job "$SLURM_JOB_ID" > "$job_dir/slurm-job.txt" 2>&1 || true
-# One writer per experiment. The descriptor/lock persists across all srun steps.
+# One writer per experiment; the descriptors/locks persist across all srun steps. Training
+# restricted to one task (optionally one seed) writes only that slice's runs, so such jobs
+# hold the experiment lock shared and may run side by side once the manifest exists.
+task= seed=
+if [[ $1 == train ]]; then
+    arguments=("${@:2}")
+    for ((i = 0; i < ${#arguments[@]}; i += 1)); do
+        case "${arguments[i]}" in
+            --task) task=${arguments[i+1]:-};;
+            --task=*) task=${arguments[i]#--task=};;
+            --seed) seed=${arguments[i+1]:-};;
+            --seed=*) seed=${arguments[i]#--seed=};;
+        esac
+    done
+fi
+if [[ -z $task ]]; then seed=; fi
+if [[ -n $task && ! $task =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] || [[ -n $seed && ! $seed =~ ^[0-9]+$ ]]; then
+    echo 'Invalid --task or --seed for a training job' >&2; exit 2
+fi
 exec 9> "$output/.job.lock"
-if ! flock -n 9; then echo "Experiment already has a running job: $output" >&2; exit 2; fi
+if [[ -z $task ]]; then
+    if ! flock -n 9; then echo "Experiment already has a running job: $output" >&2; exit 2; fi
+else
+    if [[ ! -f $output/manifest.json ]]; then echo "Prepare the experiment once before per-task training jobs: $output" >&2; exit 2; fi
+    if ! flock -n -s 9; then echo "Experiment has a running job that needs it exclusively: $output" >&2; exit 2; fi
+    exec 8> "$output/.job-$task.lock"
+    if [[ -z $seed ]]; then
+        if ! flock -n 8; then echo "Task $task already has a running training job: $output" >&2; exit 2; fi
+    else
+        if ! flock -n -s 8; then echo "Task $task has a running job covering every seed: $output" >&2; exit 2; fi
+        exec 7> "$output/.job-$task-seed-$seed.lock"
+        if ! flock -n 7; then echo "Task $task seed $seed already has a running training job: $output" >&2; exit 2; fi
+    fi
+fi
 dcgm_pid=
 finish() {
     status=$?

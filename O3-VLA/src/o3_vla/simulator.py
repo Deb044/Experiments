@@ -9,6 +9,7 @@ from PIL import Image
 
 from .actions import hold_action
 from .io import git_revision, hash_file
+from .render import robosuite_import
 
 
 def quaternion_distance(first, second):
@@ -66,7 +67,8 @@ class Libero:
         return result
 
     def environment(self, task, trial):
-        from libero.libero.envs import OffScreenRenderEnv
+        with robosuite_import():
+            from libero.libero.envs import OffScreenRenderEnv
 
         path = Path(task["initial_states_file"])
         if hash_file(path) != task["initial_states_sha256"]:

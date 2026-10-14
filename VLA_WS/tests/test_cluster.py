@@ -130,15 +130,15 @@ def test_selection_uses_device_peak_and_rejects_mixed_protocols(tmp_path):
         compare([path])
 
 
-@pytest.mark.skipif(sys.platform == "win32" or not shutil.which("bash"), reason="Linux Slurm launcher")
-def test_bash_launchers_and_cpu_job_integration(tmp_path):
-    for script in (ROOT / "cluster").glob("*.sh"):
-        subprocess.run(["bash", "-n", str(script)], check=True)
+LINUX_LAUNCHER = pytest.mark.skipif(sys.platform == "win32" or not shutil.which("bash"), reason="Linux Slurm launcher")
+
+
+def simulated_slurm(tmp_path, sbatch='printf "%s\\n" "$@"'):
     binaries = tmp_path / "bin"
     binaries.mkdir()
     for name, body in {"srun": 'exec "$@"', "scontrol": 'echo "fixture allocation"',
                        "sacct": 'echo "fixture accounting"', "nvidia-smi": 'echo "fixture inventory"',
-                       "sbatch": 'printf "%s\\n" "$@"'}.items():
+                       "sbatch": sbatch}.items():
         script = binaries / name
         script.write_text("#!/bin/bash\n" + body + "\n")
         script.chmod(0o755)
@@ -146,11 +146,18 @@ def test_bash_launchers_and_cpu_job_integration(tmp_path):
     cfg["benchmark"].update(warmup=1, updates=2)
     source = tmp_path / "source.json"
     write_json(source, cfg)
-    env = dict(os.environ, PATH=str(binaries) + os.pathsep + os.environ["PATH"],
-               VLA_REPO_ROOT=str(ROOT), VLA_LOG_ROOT=str(tmp_path / "logs"),
-               VLA_SCRATCH_ROOT=str(tmp_path / "scratch"), VLA_EXPERIMENT="test-medium",
-               VLA_PYTHON=sys.executable, VLA_CONFIG=str(source), VLA_BENCHMARK_REPEATS="1",
-               SLURM_JOB_ID="123", SLURM_JOB_PARTITION="gpu_medium", VLA_JOB_LEVEL="medium")
+    return dict(os.environ, PATH=str(binaries) + os.pathsep + os.environ["PATH"],
+                VLA_REPO_ROOT=str(ROOT), VLA_LOG_ROOT=str(tmp_path / "logs"),
+                VLA_SCRATCH_ROOT=str(tmp_path / "scratch"), VLA_EXPERIMENT="test-medium",
+                VLA_PYTHON=sys.executable, VLA_CONFIG=str(source), VLA_BENCHMARK_REPEATS="1",
+                SLURM_JOB_ID="123", SLURM_JOB_PARTITION="gpu_medium", VLA_JOB_LEVEL="medium")
+
+
+@LINUX_LAUNCHER
+def test_bash_launchers_and_cpu_job_integration(tmp_path):
+    for script in (ROOT / "cluster").glob("*.sh"):
+        subprocess.run(["bash", "-n", str(script)], check=True)
+    env = simulated_slurm(tmp_path)
     submission = subprocess.run(["bash", str(ROOT / "cluster/submit.sh"), "medium", "train", "--max-updates", "1"],
                                 env=env, check=True, text=True, capture_output=True)
     assert (tmp_path / "logs").is_dir()
@@ -167,3 +174,56 @@ def test_bash_launchers_and_cpu_job_integration(tmp_path):
     failure = subprocess.run(["bash", str(ROOT / "cluster/job_gpu_medium.sh"), "invalid-stage"], env=env)
     assert failure.returncode != 0
     assert int((logs / "exit-code.txt").read_text()) != 0
+
+
+@LINUX_LAUNCHER
+def test_training_jobs_for_separate_tasks_share_an_experiment(tmp_path):
+    env = simulated_slurm(tmp_path)
+    output = tmp_path / "scratch/experiments/test-medium"
+
+    def job(*command):
+        return subprocess.run(["bash", str(ROOT / "cluster/job_gpu_medium.sh"), *command], env=env, text=True, capture_output=True)
+
+    # A slice of the experiment cannot be trained before the shared manifest exists.
+    early = job("train", "--task", "goal-0", "--max-updates", "1")
+    assert early.returncode == 2 and "Prepare the experiment once" in early.stderr
+    assert job("prepare").returncode == 0
+    # Stand in for a running goal-0 training job: experiment lock shared, task lock exclusive.
+    holder = subprocess.Popen(["bash", "-c", 'exec 9> "$0/.job.lock"; flock -s 9; exec 8> "$0/.job-goal-0.lock"; flock 8; '
+                               'echo held; exec sleep 120', str(output)], stdout=subprocess.PIPE, text=True)
+    try:
+        assert holder.stdout.readline().strip() == "held"
+        assert job("train", "--task", "object-0", "--max-updates", "1").returncode == 0
+        same_task = job("train", "--task", "goal-0", "--max-updates", "1")
+        assert same_task.returncode == 2 and "already has a running training job" in same_task.stderr
+        one_seed = job("train", "--task=goal-0", "--seed=0", "--max-updates", "1")
+        assert one_seed.returncode == 2 and "covering every seed" in one_seed.stderr
+        whole = job("benchmark")
+        assert whole.returncode == 2 and "already has a running job" in whole.stderr
+    finally:
+        holder.kill()
+        holder.wait()
+    assert job("train", "--task", "goal-0", "--seed", "0", "--max-updates", "1").returncode == 0
+    started = {path.relative_to(output / "runs").parts[:2] for path in (output / "runs").rglob("resume.pt")}
+    assert ("goal-0", "seed-0") in started and ("goal-0", "seed-1") not in started
+    assert {parts[0] for parts in started} == {"goal-0", "object-0"}
+
+
+@LINUX_LAUNCHER
+@pytest.mark.parametrize("split, training_jobs", [("task", 3), ("seed", 6)])
+def test_parallel_submission_chains_prepare_training_and_the_remaining_stages(tmp_path, split, training_jobs):
+    record = tmp_path / "submissions.txt"
+    env = simulated_slurm(tmp_path, sbatch=f'printf "%s " "$@" >> "{record}"; echo >> "{record}"; '
+                                           f'echo "Submitted batch job $(wc -l < "{record}")"')
+    subprocess.run(["bash", str(ROOT / "cluster/submit_parallel.sh"), "small", split], env=env, check=True, capture_output=True)
+    submissions = record.read_text().splitlines()
+    assert len(submissions) == training_jobs + 2
+    assert submissions[0].rstrip().endswith("job_gpu_small.sh prepare") and "--dependency" not in submissions[0]
+    for line in submissions[1:-1]:
+        assert "--dependency=afterok:1 " in line and "job_gpu_small.sh train --task " in line
+        assert ("--seed" in line) == (split == "seed")
+    assert {line.split("train ")[1].strip() for line in submissions[1:-1]} == (
+        {f"--task {task}" for task in ("goal-0", "object-0", "spatial-0")} if split == "task" else
+        {f"--task {task} --seed {seed}" for task in ("goal-0", "object-0", "spatial-0") for seed in (0, 1)})
+    waits = ":".join(str(number) for number in range(2, training_jobs + 2))
+    assert f"--dependency=afterany:{waits} " in submissions[-1] and submissions[-1].rstrip().endswith("job_gpu_small.sh run")

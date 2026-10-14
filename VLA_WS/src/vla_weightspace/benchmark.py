@@ -9,7 +9,7 @@ import torch
 
 from .backends import create_backend
 from .io import digest, write_json
-from .runtime import hardware_info, optimizer_for, seed_everything, timing_summary, update
+from .runtime import hardware_info, optimizer_for, seed_everything, synchronize, timing_summary, update
 from .telemetry import GpuTelemetry, job_environment
 
 
@@ -29,15 +29,29 @@ def benchmark(manifest):
         torch.cuda.reset_peak_memory_stats(backend.device)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     directory = Path(cfg["output"]) / "benchmarks" / stamp
+    # MIG hides utilization, so time the input pipeline itself: a GPU that waits on data is idle.
+    draw, sampling = backend.sample, []
+
+    def timed_sample(*arguments):
+        begin = time.perf_counter()
+        batch = draw(*arguments)
+        synchronize(backend.device)
+        sampling.append(time.perf_counter() - begin)
+        return batch
+
+    backend.sample = timed_sample
     with GpuTelemetry(directory, backend.device, interval=2, scope="benchmark-measured-updates") as monitor:
         times = [update(backend, optimizer, episodes, rng)[1] for _ in range(cfg["benchmark"]["updates"])]
+    backend.sample = draw
     summary = timing_summary(times)
+    summary["sampling_mean_seconds"] = float(sum(sampling) / len(times))
+    summary["sampling_fraction"] = float(sum(sampling) / sum(times))
     run_count = len(manifest["tasks"]) * len(cfg["seeds"]) * (1 + len(cfg["request_seeds"]))
     result = {"fingerprint": manifest["fingerprint"], "synthetic": manifest["provenance"]["synthetic"],
               "effective_batch": cfg["training"]["effective_batch"], "microbatch": cfg["training"]["microbatch"],
               "accumulation": cfg["training"]["effective_batch"] // cfg["training"]["microbatch"],
               "precision": cfg["training"]["precision"], "backend": cfg["backend"], "hardware": hardware_info(backend.device),
-              "job": job_environment(), "gpu_telemetry": monitor.summary,
+              "job": job_environment(), "gpu_telemetry": monitor.summary, "data_cache": getattr(backend, "cache_info", None),
               "timing": summary, "benchmark_wall_seconds": time.perf_counter() - start,
               "samples_per_second": cfg["training"]["effective_batch"] / summary["mean_seconds"],
               "adapter_runs": run_count, "training_hours_estimate": run_count * cfg["training"]["steps"] * summary["mean_seconds"] / 3600,

@@ -30,6 +30,7 @@ def main(argv=None):
         sub.add_parser(command)
     train_parser = sub.add_parser("train")
     train_parser.add_argument("--task")
+    train_parser.add_argument("--seed", type=int)
     train_parser.add_argument("--run-id")
     train_parser.add_argument("--max-updates", type=int)
     args = parser.parse_args(argv)
@@ -76,7 +77,7 @@ def execute(args, cfg, parser):
     elif args.command == "train":
         if args.max_updates is not None and args.max_updates < 1:
             parser.error("--max-updates must be positive")
-        train(manifest, args.task, args.run_id, args.max_updates)
+        train(manifest, args.task, args.run_id, args.max_updates, args.seed)
     else:
         function = {"benchmark": benchmark, "extract": extract, "predict": predict, "evaluate": evaluate, "report": report}[args.command]
         result = function(manifest)

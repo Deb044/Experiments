@@ -92,9 +92,9 @@ def train_one(backend, spec, manifest, initial, max_updates=None):
     return metadata
 
 
-def train(manifest, task_filter=None, run_filter=None, max_updates=None):
+def train(manifest, task_filter=None, run_filter=None, max_updates=None, seed_filter=None):
     specs = [spec for spec in run_specs(manifest) if (task_filter is None or spec["task"] == task_filter)
-             and (run_filter is None or spec["id"] == run_filter)]
+             and (run_filter is None or spec["id"] == run_filter) and (seed_filter is None or spec["seed"] == seed_filter)]
     if not specs:
         raise ValueError("No matching training runs")
     current = None

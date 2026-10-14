@@ -32,8 +32,7 @@ def flow_probes(backend, episodes, seed):
                 batch = backend.sample(episodes, n, rng)
                 noise, time_value = backend.random_flow(batch, generator)
                 with precision_context(cfg, backend.device):
-                    output = backend.flow(batch, noise, time_value)
-                    loss = backend.loss(batch, noise, time_value)
+                    output, loss = backend.flow_and_loss(batch, noise, time_value)
                 outputs.append(output.cpu().float().numpy())
                 pad = batch.get("action_is_pad")
                 masks.append(np.ones(output.shape[:2], dtype=bool) if pad is None else (~pad).cpu().numpy())

@@ -13,5 +13,6 @@ mkdir -p -- "$VLA_LOG_ROOT"
 options=(--chdir="$VLA_REPO_ROOT" --output="$VLA_LOG_ROOT/%x-%j.out" --error="$VLA_LOG_ROOT/%x-%j.err" --export=ALL)
 if [[ -n ${VLA_WALLTIME:-} ]]; then options+=(--time="$VLA_WALLTIME"); fi
 if [[ -n ${VLA_ACCOUNT:-} ]]; then options+=(--account="$VLA_ACCOUNT"); fi
+if [[ -n ${VLA_DEPENDENCY:-} ]]; then options+=(--dependency="$VLA_DEPENDENCY"); fi
 if (($# == 0)); then set -- benchmark; fi
 sbatch "${options[@]}" "$script_dir/job_gpu_${level}.sh" "$@"

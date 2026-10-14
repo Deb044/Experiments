@@ -17,9 +17,17 @@ Use an independent Python 3.10 or 3.11 environment. Do not reuse or modify the
 working VLA_WS environment. Install the CUDA Torch/torchvision pair appropriate
 to Blackwell first; the previous SmolVLA timing does not predict OpenVLA timing.
 
+The cluster's bare `python` is not guaranteed to be 3.10 or 3.11, and newer
+interpreters do not work: `mujoco==2.3.7` has wheels only up to 3.11, and
+`tensorflow-cpu<2.18` and `tokenizers==0.19.1` only up to 3.12. Set `PY` to a
+3.10/3.11 interpreter; if none is installed, create one with Conda as shown.
+
 ```bash
 cd "$HOME/VLA/Experiments/O3-VLA"
-python3.10 -m venv .venv
+PY=/scratch/$USER/envs/py311/bin/python
+[ -x "$PY" ] || conda create -y -p /scratch/$USER/envs/py311 python=3.11
+"$PY" -c 'import sys; assert sys.version_info[:2] in ((3, 10), (3, 11)), sys.version'
+"$PY" -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
@@ -67,6 +75,12 @@ resumes from the last atomic optimizer checkpoint. Never run two writers against
 the same output folder. Logs and errors go to **`$HOME/VLA/Experiments/logs`**;
 large outputs/caches go to **`/scratch/$USER/VLA/O3-VLA`**. Override paths using
 `O3_OUTPUT`, `O3_DATA_ROOT`, `O3_LIBERO_ROOT`, `O3_PYTHON`, or `O3_LOG_ROOT`.
+
+MIG slices have no NVIDIA graphics support, so jobs render with Mesa's software
+EGL by default (`O3_RENDER=mesa-egl`). Use `O3_RENDER=egl` only on a whole GPU,
+or `O3_RENDER=osmesa` if libOSMesa is installed. Set `O3_MESA_EGL_VENDOR` if the
+Mesa vendor file is not `/usr/share/glvnd/egl_vendor.d/50_mesa.json`. Keep one
+renderer for all stages of a run; the job log's first line records it.
 
 The approved medium template allows **six hours per job**, not 24 hours.
 The one-day protocol can require several sequential allocations, excluding queue
