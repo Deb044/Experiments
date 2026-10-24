@@ -1,0 +1,17 @@
+[project]
+name = "drift-forget"
+version = "0.0.1"
+description = "Weight and feature drift versus forgetting in continual-learning VLAs"
+requires-python = ">=3.11"
+# Not installed: the package runs inside continual-openpi's uv environment through PYTHONPATH (see README.md).
+# Extra dependencies are decided at the increment that first needs them.
+dependencies = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["continual-openpi", "continual-GR00T"]

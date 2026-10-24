@@ -52,6 +52,11 @@ Check it again from this directory, with the upstream clones in `<src>`:
 - **Large file.** `continual-openpi/third_party/aloha/aloha2/workcell_v2/Aloha workcell v2.stl` is 97 MB.
   That is under GitHub's 100 MB limit, so pushes print a warning but succeed. The vendored code takes
   about 600 MB in total.
+- **No lock file.** The fork does not commit openpi's `uv.lock`, so the authors' exact dependency versions are
+  unknown. Only some pins in `continual-openpi/pyproject.toml` are exact (`jax[cuda12]==0.5.3`, `flax==0.10.2`);
+  others, such as `torch>=2.7.0`, are open. We run `uv lock` at the first cluster setup, verify the
+  environment, and commit the resulting `continual-openpi/uv.lock` as our own file, so every later install is
+  identical.
 - **Git LFS.** `continual-GR00T/.gitattributes` marks `media/robot-demo.gif` and `*.safetensors` for LFS.
   Upstream stores the GIF as a 132-byte LFS pointer, and that pointer is what was vendored (the real GIF
   is a README image, not needed to run anything). The repository contains no `.safetensors` files.
