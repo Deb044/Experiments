@@ -40,6 +40,14 @@ Check it again from this directory, with the upstream clones in `<src>`:
 # Repeat for third_party/libero, third_party/aloha (prefix the path) and continual-GR00T.
 ```
 
+## Our edits to vendored files
+
+Every change made after the import, in order. `git diff eb46140 -- continual-openpi continual-GR00T` shows them all.
+
+| File | Change | Why |
+|---|---|---|
+| `continual-openpi/examples/libero/convert_libero_data_to_lerobot.py` | `REPO_NAME = "libero"` → `"huihanl/libero"` | The sequential training configs read `huihanl/libero-<suite>_no_noops/<task>` (`src/openpi/training/config.py`, `_LIBERO_OBJECT_SEQ` and others). The converter's `--output_dir` cannot fix the path, because it is never passed to `LeRobotDataset.create`; we leave that option unused rather than change it. |
+
 ## Git notes for this repository
 
 - **Nested ignore rules.** The `.gitignore` files of the vendored repositories still apply inside

@@ -27,7 +27,7 @@ from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 import tensorflow_datasets as tfds
 import tyro
 
-REPO_NAME = "libero"
+REPO_NAME = "huihanl/libero"
 RAW_DATASET_NAMES = [
     "libero_10_no_noops",
     "libero_goal_no_noops",

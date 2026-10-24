@@ -43,7 +43,7 @@ All code is at the vendored commits (see `VENDORED.md`). Facts marked *(code)* w
 | LR schedule, paper | One cosine over the whole run: warmup 1000 steps, peak 2.5e-5, floor 2.5e-6 reached at step 30,000, never reset between tasks *(code)*. |
 | LR schedule, restart | Warmup and cosine restart at each task. Shape TBD (D15). |
 | Suites | LIBERO-Object (10 tasks). LIBERO-10 is in Tier 4. |
-| Task order | The paper's Appendix B.2 order as implemented in the fork. Exact list TBD; verified at increment 4. |
+| Task order | The paper's Appendix B.2 order, verified to match the fork's `_LIBERO_OBJECT_SEQ` / `_LIBERO_10_SEQ` and LIBERO's eval indices (`task_order_index=0`). Object: alphabet soup, bbq sauce, butter, chocolate pudding, cream cheese, ketchup, milk, orange juice, salad dressing, tomato sauce. |
 | Data | OpenVLA-filtered `modified_libero_rlds` (no-noops), converted to LeRobot format with the fork's converter. |
 | Steps per task | 10,000 (100,000 per run). The fork's ER resume requires task ends at `…9999` *(code)*. |
 | Replay | Fixed buffer of M transitions per earlier task, recorded in each checkpoint (`buffer_lst`). |
@@ -157,6 +157,7 @@ These run on the MIG slice before main runs. Details are in the plan.
 |---|---|---|---|
 | 2026-10-24 | v0 | First draft from decisions D4, D6, D7, D8, D9, D10, D15 (conditions only) and the tier rule. | — |
 | 2026-10-24 | v0 | Tier 4 changed from Tier 1 on LIBERO-10 (20 runs) to all 9 conditions on LIBERO-10 (45 runs). | The user chose a full replication on the second suite, so H5 and the batch control are tested there too. |
+| 2026-10-24 | v0 | Task order filled in, and its open item removed. | Paper App. B.2, the fork's task lists, and LIBERO's eval order were checked and agree. |
 
 ## Open items
 
@@ -172,4 +173,3 @@ These run on the MIG slice before main runs. Details are in the plan.
 - **D22:** recovery fine-tuning.
 - **D23:** significance level and exact tests.
 - **Pilot settings.**
-- **Task-order verification.**
