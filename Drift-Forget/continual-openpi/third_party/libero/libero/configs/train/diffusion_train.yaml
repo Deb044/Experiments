@@ -1,0 +1,23 @@
+# Diffusion policy training config
+# Uses same batch_size as libero (16), but longer training
+
+n_epochs: 50
+batch_size: 16
+num_workers: 4
+grad_clip: 100.
+loss_scale: 1.0
+
+# resume training
+resume: false
+resume_path: ""
+debug: false
+
+use_augmentation: true
+
+# Save checkpoints more frequently for long training
+save_first_10: false
+
+defaults:
+    - optimizer@optimizer: adam_w.yaml
+    - scheduler@scheduler: cosine_annealing.yaml
+    - /data@data: diffusion.yaml

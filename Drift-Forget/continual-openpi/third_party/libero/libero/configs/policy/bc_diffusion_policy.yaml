@@ -1,0 +1,46 @@
+policy_type: BCDiffusionPolicy
+
+# Observation embedding size
+embed_size: 64
+num_kp: 32
+
+# Horizon parameters (matching robomimic)
+observation_horizon: 2
+action_horizon: 8
+prediction_horizon: 16
+
+# UNet parameters (matching robomimic)
+diffusion_step_embed_dim: 256
+down_dims: [256, 512, 1024]
+kernel_size: 5
+n_groups: 8
+
+# DDPM scheduler
+ddpm:
+    enabled: true
+    num_train_timesteps: 100
+    num_inference_timesteps: 100
+    beta_schedule: "squaredcos_cap_v2"
+    clip_sample: true
+    prediction_type: "epsilon"
+
+# DDIM scheduler (alternative, disabled by default)
+ddim:
+    enabled: false
+    num_train_timesteps: 100
+    num_inference_timesteps: 10
+    beta_schedule: "squaredcos_cap_v2"
+    clip_sample: true
+    set_alpha_to_one: true
+    steps_offset: 0
+    prediction_type: "epsilon"
+
+# EMA for stable inference
+ema:
+    enabled: true
+    power: 0.75
+
+defaults:
+    - data_augmentation@color_aug: batch_wise_img_color_jitter_group_aug.yaml
+    - data_augmentation@translation_aug: translation_aug.yaml
+    - language_encoder: mlp_encoder.yaml
