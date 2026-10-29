@@ -108,7 +108,11 @@ Each measure is computed per run × snapshot × old task k × module × probe gr
   - Quadratic prediction gᵀΔθ + ½ΔθᵀHΔθ.
   - Loss along the straight path from θ_ref to θ_t.
 - **Probes (TBD, D16).** A fixed set per task, tagged `replayed` or `trained_not_replayed` from `buffer_lst`.
-- **Snapshots (TBD, D13, D14).** Dense just after each task switch.
+- **Snapshots (D13, D14).**
+  - Contents: trainable parameters in fp32, plus the pretrained start `init`.
+  - When: steps 49, 99, 249, 499, 999, 1999, 3999, 5999 and 7999 after each task starts.
+  - Task ends: read from the full checkpoints, which are kept at task ends only.
+  - Retention: intermediate snapshots are deleted only after a run's analysis and evals are checked.
 
 ## 7. Analysis plan
 
@@ -158,12 +162,15 @@ These run on the MIG slice before main runs. Details are in the plan.
 | 2026-10-24 | v0 | First draft from decisions D4, D6, D7, D8, D9, D10, D15 (conditions only) and the tier rule. | — |
 | 2026-10-24 | v0 | Tier 4 changed from Tier 1 on LIBERO-10 (20 runs) to all 9 conditions on LIBERO-10 (45 runs). | The user chose a full replication on the second suite, so H5 and the batch control are tested there too. |
 | 2026-10-24 | v0 | Task order filled in, and its open item removed. | Paper App. B.2, the fork's task lists, and LIBERO's eval order were checked and agree. |
+| 2026-10-25 | v0 | Snapshot schedule, precision and retention fixed (D13, D14). Full checkpoints at task ends only. | Storage: full checkpoints every 2000 steps would take about 600 GB per run. |
 
 ## Open items
 
 - **D5, D19:** what the user's feature mappings compute and how they are fitted.
 - **D10:** seed values.
-- **D13, D14:** snapshot schedule and retention.
+- **Replay-buffer seeding (increment 6).** `create_deterministic_buffer` draws the buffer with numpy's unseeded
+  global generator, so a rerun with the same seed replays different samples. The buffer actually used is
+  recorded either way.
 - **D15:** shape of the restart schedule.
 - **D16:** probe sizes.
 - **D17:** feature pooling.

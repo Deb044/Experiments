@@ -66,5 +66,39 @@ Checked against the code:
 
 So training task k and evaluation task k are the same task.
 
+## Training: snapshots and checkpoints
+
+`continual-openpi/scripts/train.py` saves snapshots of the trainable parameters through
+`src/drift_forget/snapshots.py`. It needs two environment settings:
+
+- `PYTHONPATH` must include `Drift-Forget/src`. Without it, `train.py` fails to import.
+- `DF_SNAPSHOT_DIR` must be set to a root directory, or to `off`. If it is unset, training stops.
+
+Snapshots go to `$DF_SNAPSHOT_DIR/<config>/<exp>/`:
+- `init` is the pretrained starting point.
+- Each task gets snapshots at steps 49, 99, 249, 499, 999, 1999, 3999, 5999 and 7999 after its start.
+- All are saved in fp32, at the precision used in training.
+- The end of each task is the full orbax checkpoint, so it is not duplicated as a snapshot.
+
+To keep full orbax checkpoints at task ends only, pass `--save-interval 1000000000`. The final save of each task
+always happens. `--save-interval 10000` would add a useless checkpoint at the first step of every task.
+
+Retention (decision D14): keep everything until a run's analysis table and simulator evals are written and
+checked. Then delete:
+- the intermediate snapshots;
+- the optimizer state (`train_state`) of task-end checkpoints.
+
+Task-end `params` and `init` are kept permanently.
+
+```bash
+export PYTHONPATH="$PWD/src" DF_SNAPSHOT_DIR=$DF_SCRATCH/snapshots
+cd continual-openpi
+XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 uv run scripts/train.py pi0_libero_low_mem_finetune-libero_object_sequential \
+  --exp-name <condition>_s<seed> --cl er --n-memories 1000 --seed <seed> --batch-size 8 --fsdp-devices 1 \
+  --save-interval 1000000000 --checkpoint-base-dir $DF_SCRATCH/checkpoints
+```
+
+The full launch commands are fixed when the launchers are written.
+
 Cluster setup and job launchers come later (plan increment 16). Nothing in this study runs on the development
 laptop.

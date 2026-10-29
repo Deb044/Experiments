@@ -30,6 +30,8 @@ import openpi.training.weight_loaders as _weight_loaders
 
 from openpi.training.data_loader import create_deterministic_buffer, create_torch_data_loader_replay_buffer, MixedDataLoader
 
+import drift_forget.snapshots as _df_snapshots  # Drift-Forget: trainable-parameter snapshots (Drift-Forget/src)
+
 
 def init_logging():
     """Custom logging format for better readability."""
@@ -294,6 +296,7 @@ def make_single_task_loop(
             train_state, info = ptrain_step(train_rng, train_state, batch)
 
         jax.block_until_ready(train_state)
+        _df_snapshots.maybe_save(config, train_state, global_step=global_step, global_start=global_start, task_idx=task_idx)
         infos.append(info)
 
         if global_step % config.log_interval == 0:
@@ -477,6 +480,10 @@ def main(config: _config.TrainConfig):
         logging.info(f"Resuming from checkpoint step {last_step}, task {prev_task_idx}")
     else:
         replay_loader = None
+
+    _df_snapshots.on_start(
+        config, train_state, buffer_lst, resumed_step=checkpoint_manager.latest_step() if resuming else None
+    )
 
     # --- Sequential training loop ---
     def _run_task(task_idx):

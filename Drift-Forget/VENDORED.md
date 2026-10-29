@@ -47,6 +47,7 @@ Every change made after the import, in order. `git diff eb46140 -- continual-ope
 | File | Change | Why |
 |---|---|---|
 | `continual-openpi/examples/libero/convert_libero_data_to_lerobot.py` | `REPO_NAME = "libero"` → `"huihanl/libero"` | The sequential training configs read `huihanl/libero-<suite>_no_noops/<task>` (`src/openpi/training/config.py`, `_LIBERO_OBJECT_SEQ` and others). The converter's `--output_dir` cannot fix the path, because it is never passed to `LeRobotDataset.create`; we leave that option unused rather than change it. |
+| `continual-openpi/scripts/train.py` | Three additions: import `drift_forget.snapshots`; call `on_start(...)` once before the task loop; call `maybe_save(...)` after each step's `jax.block_until_ready(train_state)`. | Trainable-parameter snapshots for the drift analysis. The calls only copy arrays to the host, with no effect on RNG, data or optimizer state; gate G3 checks this. `train.py` now needs `Drift-Forget/src` on `PYTHONPATH` and `DF_SNAPSHOT_DIR` set (see README). |
 
 ## Git notes for this repository
 
